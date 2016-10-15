@@ -6,6 +6,7 @@ Usage:
   xmage-maintenance [options] change-set-code <xmage_set_dir> <new_set_code>
   xmage-maintenance [options] full-spoiler <set_code> <spoiler_url>
   xmage-maintenance [options] implemented <card_name> [<set_code>]
+  xmage-maintenance [options] markdown-link <card_name> <set_code>
   xmage-maintenance [options] oracle-update <set_code>
   xmage-maintenance [options] total
   xmage-maintenance -h | --help
@@ -156,6 +157,13 @@ if __name__ == '__main__':
         if OPTIONS['verbose']:
             print('[{}] {}{}'.format(' ok ' if impl else 'FAIL', '({}) '.format(arguments['<set_code>']) if arguments['<set_code>'] else '', arguments['<card_name>']))
         sys.exit(0 if impl else 1)
+    elif arguments['markdown-link']:
+        if OPTIONS['verbose']:
+            print('[....] downloading MTG JSON', end='', flush=True)
+        db = mtgjson.CardDb.from_url()
+        if OPTIONS['verbose']:
+            print('\r[ ok ]')
+        print(markdown_card_link(arguments['<card_name>'], arguments['<set_code>'], db=db))
     elif arguments['oracle-update']:
         set_code = arguments['<set_code>']
         if OPTIONS['verbose']:
