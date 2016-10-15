@@ -69,77 +69,26 @@ def copy(text):
     else:
         subprocess.run(['pbcopy'], input=text.encode('utf-8'))
 
-def implemented(name, expansion=None, *, class_name=None, set_dirs_cache=None):
-    if expansion is None:
-        if set_dirs_cache is None:
-            set_dirs_cache = set_dirs()
-        search_set_dirs = set_dirs_cache.values()
-    elif isinstance(expansion, str):
-        if set_dirs_cache is None:
-            set_dirs_cache = set_dirs()
-        search_set_dirs = [set_dirs_cache[expansion]]
-    elif isinstance(expansion, pathlib.Path):
-        search_set_dirs = [expansion]
-    else:
-        raise TypeError('Unsupported expansion type: {}'.format(type(expansion)))
-    if class_name is None:
-        candidates = itertools.chain.from_iterable(set_dir.iterdir() for set_dir in search_set_dirs)
-    else:
-        candidates = (set_dir / '{}.java'.format(class_name) for set_dir in search_set_dirs)
-    for card in candidates:
-        if card.is_dir():
-            continue
-        with card.open() as f:
+def implemented(name, expansion=None):
+    candidates = (MASTER / 'Mage.Sets' / 'src' / 'mage' / 'sets').iterdir()
+    for set_class in candidates:
+        with set_class.open() as f:
             text = f.read()
         for line in text.split('\n'):
-            if name in ('Plains', 'Island', 'Swamp', 'Mountain', 'Forest'):
-                match = re.match('public class ([0-9A-Za-z]+) extends mage\\.cards\\.basiclands\\.{}'.format(name), line)
-                if match:
-                    return True if class_name is None else (True, match.group(1))
-            match = re.match('        super\\(ownerId, [0-9]+, "(.+?)",', line)
-            if match and (match.group(1) == name or class_name is not None):
-                return True if class_name is None else (True, match.group(1))
-            match = re.match('public class ([0-9A-Za-z]+) extends mage\\.sets\\.([0-9a-z]+)\\.([0-9A-Za-z]+) \\{', line)
+            if expansion is not None:
+                match = re.match('        super\\("[^"]+", "([A-Z0-9]+)"', line)
+                if match and match.group(1) != expansion:
+                    break
+            match = re.search('cards.add\\(new SetCardInfo\\("{}",'.format(name), line)
             if match:
-                if class_name is not None and class_name != match.group(1):
-                    break
-                if set_dirs_cache is None:
-                    set_dirs_cache = set_dirs()
-                found, super_name = implemented(name, expansion=MASTER / 'Mage.Sets' / 'src' / 'mage' / 'sets' / match.group(2), class_name=match.group(3), set_dirs_cache=set_dirs_cache)
-                if super_name == name:
-                    return found if class_name is None else (found, super_name)
-                else:
-                    break
-    return False if class_name is None else (False, None)
+                return True
+    return False
 
 def markdown_card_link(name, set_code, db=None):
     if db is None:
         db = mtgjson.CardDb.from_url()
     card = db.sets[set_code].cards_by_name[name]
     return '[{}](https://mtg.wtf/card/{}/{})'.format(name, set_code.lower(), card.number)
-
-def set_dirs():
-    result = {}
-    total = sum(1 for f in (MASTER / 'Mage.Sets' / 'src' / 'mage' / 'sets').iterdir() if f.is_dir())
-    for i, set_dir in enumerate(f for f in (MASTER / 'Mage.Sets' / 'src' / 'mage' / 'sets').iterdir() if f.is_dir()):
-        if OPTIONS['verbose']:
-            progress = int(5 * i / total)
-            print('\r[{}{}] caching XMage set directories'.format('=' * progress, '.' * (4 - progress)), end='', flush=True)
-        for card in set_dir.iterdir():
-            if card.is_dir():
-                continue
-            with card.open() as f:
-                text = f.read()
-            for line in text.split('\n'):
-                match = re.fullmatch('        this\\.expansionSetCode = "([0-9A-Z]+)";', line)
-                if match:
-                    if match.group(1) in result and result[match.group(1)] != set_dir:
-                        raise ValueError('Set {} has multiple directories: {} and {}'.format(match.group(1), result[match.group(1)], set_dir))
-                    result[match.group(1)] = set_dir
-                    break
-    if OPTIONS['verbose']:
-        print('\r[ ok ]')
-    return result
 
 if __name__ == '__main__':
     arguments = docopt.docopt(__doc__)
@@ -185,12 +134,11 @@ if __name__ == '__main__':
         reprints = []
         new_cards = []
         num_cards = len(card_images)
-        set_dirs_cache = set_dirs()
         for i, (name, image) in enumerate(sorted(card_images.items())):
             if OPTIONS['verbose']:
                 progress = int(5 * i / num_cards)
                 print('\r[{}{}] checking for implemented cards'.format('=' * progress, '.' * (4 - progress)), end='', flush=True)
-            (reprints if name in db.cards_by_name else new_cards).append('- [{}] [{}]({})'.format('x' if implemented(name, arguments['<set_code>'], set_dirs_cache=set_dirs_cache) else ' ', name, image))
+            (reprints if name in db.cards_by_name else new_cards).append('- [{}] [{}]({})'.format('x' if implemented(name, arguments['<set_code>']) else ' ', name, image))
         if OPTIONS['verbose']:
             print('\r[ ok ]')
         if OPTIONS['stdout']:
@@ -204,17 +152,10 @@ if __name__ == '__main__':
         if not OPTIONS['stdout']:
             print('[ ** ] new cards copied to clipboard')
     elif arguments['implemented']:
-        if implemented(arguments['<card_name>'], expansion=arguments['<set_code>']):
-            if OPTIONS['verbose']:
-                if arguments['<set_code>'] is None:
-                    print('[ ok ] {}'.format(arguments['<card_name>']))
-                else:
-                    print('[ ok ] ({}) {}'.format(arguments['<set_code>'], arguments['<card_name>']))
-            sys.exit()
-        else:
-            if OPTIONS['verbose']:
-                print('[FAIL] ({}) {}'.format(arguments['<set_code>'], arguments['<card_name>']))
-            sys.exit(1)
+        impl = implemented(arguments['<card_name>'], expansion=arguments['<set_code>'])
+        if OPTIONS['verbose']:
+            print('[{}] {}{}'.format(' ok ' if impl else 'FAIL', '({}) '.format(arguments['<set_code>']) if arguments['<set_code>'] else '', arguments['<card_name>']))
+        sys.exit(0 if impl else 1)
     elif arguments['oracle-update']:
         set_code = arguments['<set_code>']
         if OPTIONS['verbose']:
@@ -225,12 +166,11 @@ if __name__ == '__main__':
         reprints = []
         new_cards = []
         num_cards = len(db.sets[set_code].cards_by_name.items())
-        set_dirs_cache = set_dirs()
         for i, (name, card) in enumerate(sorted(db.sets[set_code].cards_by_name.items())):
             if OPTIONS['verbose']:
                 progress = int(5 * i / num_cards)
                 print('\r[{}{}] checking for implemented cards'.format('=' * progress, '.' * (4 - progress)), end='', flush=True)
-            (reprints if len(card.printings) > 1 else new_cards).append('- [{}] {}'.format('x' if implemented(name, set_code, set_dirs_cache=set_dirs_cache) else ' ', markdown_card_link(name, set_code, db=db)))
+            (reprints if len(card.printings) > 1 else new_cards).append('- [{}] {}'.format('x' if implemented(name, expansion=set_code) else ' ', markdown_card_link(name, set_code, db=db)))
         if OPTIONS['verbose']:
             print('\r[ ok ]')
         copy(('' if arguments['--patch'] else """\
