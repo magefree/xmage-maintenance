@@ -139,7 +139,13 @@ if __name__ == '__main__':
             if OPTIONS['verbose']:
                 progress = int(5 * i / num_cards)
                 print('\r[{}{}] checking for implemented cards'.format('=' * progress, '.' * (4 - progress)), end='', flush=True)
-            (reprints if name in db.cards_by_name else new_cards).append('- [{}] [{}]({})'.format('x' if implemented(name, arguments['<set_code>']) else ' ', name, image))
+            if name in db.cards_by_name:
+                collection = reprints
+            elif ' // ' in name and all(part_name in db.cards_by_name for part_name in name.split(' // ')):
+                collection = reprints
+            else:
+                collection = new_cards
+            collection.append('- [{}] [{}]({})'.format('x' if implemented(name, arguments['<set_code>']) else ' ', name, image))
         if OPTIONS['verbose']:
             print('\r[ ok ]')
         if OPTIONS['stdout']:
