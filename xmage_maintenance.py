@@ -3,7 +3,6 @@
 """Collection of maintenance tools for XMage.
 
 Usage:
-  xmage-maintenance [options] change-set-code <xmage_set_dir> <new_set_code>
   xmage-maintenance [options] full-spoiler <set_code> <spoiler_url>
   xmage-maintenance [options] implemented <card_name> [<set_code>]
   xmage-maintenance [options] markdown-link <card_name> <set_code>
@@ -102,21 +101,6 @@ if __name__ == '__main__':
         OPTIONS['stdout'] = True
     if arguments['--pull']:
         subprocess.run(['git', 'pull'], cwd=str(MASTER))
-    if arguments['change-set-code']:
-        new_code = arguments['<new_set_code>']
-        base_dir = STAGE / 'Mage.Sets' / 'src' / 'mage' / 'sets'
-        set_dir = base_dir / arguments['<xmage_set_dir>']
-        for card in set_dir.iterdir():
-            with card.open() as f:
-                text = f.read()
-            lines = text.split('\n')
-            for i in range(len(lines)):
-                if re.fullmatch('        this\\.expansionSetCode = "[0-9A-Z]+";', lines[i]):
-                    lines[i] = re.sub('"[0-9A-Z]+"', '"{}"'.format(new_code), lines[i])
-                    break
-            text = '\n'.join(lines)
-            with card.open('w') as f:
-                f.write(text)
     elif arguments['full-spoiler']:
         if OPTIONS['verbose']:
             print('[....] downloading MTG JSON', end='', flush=True)
