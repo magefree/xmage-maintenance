@@ -101,7 +101,7 @@ if __name__ == '__main__':
         OPTIONS['stdout'] = True
     if arguments['--pull']:
         subprocess.run(['git', 'pull'], cwd=str(MASTER))
-    elif arguments['full-spoiler']:
+    if arguments['full-spoiler']:
         if OPTIONS['verbose']:
             print('[....] downloading MTG JSON', end='', flush=True)
         db = mtgjson.CardDb.from_url()
