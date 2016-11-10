@@ -29,6 +29,12 @@ Syntax: `xmage-maintenance [options] implemented <card_name> [<set_code>]`
 
 Exits with code 0 if the card named `<card_name>` is implemented, and with a nonzero exit code if it's not. The argument `<set_code>` can optionally be used to look for the card in a specific set.
 
+## `implemented-since`
+
+Syntax: `xmage-maintenance [options] implemented-since <revision>`
+
+Generates the list of new cards for [the changelog](https://github.com/magefree/mage/wiki/Release-changes) and copies them to clipboard. `<revision>` should be the tag name or commit ID for the previous release; the script will compare that revision with the current master.
+
 ## `oracle-update`
 
 Syntax: `xmage-maintenance [options] oracle-update <set_code>`
