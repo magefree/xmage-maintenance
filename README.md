@@ -4,7 +4,7 @@ By default, the script will look for the repository in `/opt/git/github.com/mage
 
 # Requirements
 
-* Python (latest version)
+* Python 3 (latest version)
 * [blessings](https://pypi.python.org/pypi/blessings/) (`--verbose` only)
 * [docopt](https://pypi.python.org/pypi/docopt/)
 * [mtgjson](https://pypi.python.org/pypi/mtgjson/)
