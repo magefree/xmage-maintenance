@@ -6,7 +6,7 @@ Usage:
   xmage-maintenance [options] full-spoiler <set_code> <spoiler_url>
   xmage-maintenance [options] implemented <card_name> [<set_code>]
   xmage-maintenance [options] implemented-since <revision>
-  xmage-maintenance [options] markdown-link <card_name> <set_code>
+  xmage-maintenance [options] markdown-link <card_name> [<set_code>]
   xmage-maintenance [options] oracle-update <set_code>
   xmage-maintenance [options] total
   xmage-maintenance -h | --help
@@ -103,9 +103,11 @@ def iter_implemented(*, repo=MASTER):
                 if match:
                     yield set_code, match.group(1)
 
-def markdown_card_link(name, set_code, db=None):
+def markdown_card_link(name, set_code=None, db=None):
     if db is None:
         db = mtgjson.CardDb.from_url()
+    if set_code is None:
+        return '[{}](https://mtg.wtf/card?q=%21{})'.format(name, name.replace(' ', '+'))
     try:
         card = db.sets[set_code].cards_by_name[name]
     except KeyError:

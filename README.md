@@ -35,6 +35,12 @@ Syntax: `xmage-maintenance [options] implemented-since <revision>`
 
 Generates the list of new cards for [the changelog](https://github.com/magefree/mage/wiki/Release-changes) and copies them to clipboard. `<revision>` should be the tag name or commit ID for the previous release; the script will compare that revision with the current master.
 
+## `markdown-link`
+
+Syntax: `xmage-maintenance [options] markdown-link <card_name> [<set_code>]`
+
+Prints a link to the mtg.wtf card page in Markdown format. Link text will be the card name. If no set is specified, the URL will be a query for the card name.
+
 ## `oracle-update`
 
 Syntax: `xmage-maintenance [options] oracle-update <set_code>`
