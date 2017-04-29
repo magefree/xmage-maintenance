@@ -123,7 +123,7 @@ def markdown_card_link(name, set_code=None, db=None):
             number = card.mciNumber
         except AttributeError as e:
             return '[{}](https://mtg.wtf/card?q=%21{})'.format(name, name.replace(' ', '+'))
-    return '[{}](https://mtg.wtf/card/{}/{})'.format(name, url_set_code, number)
+    return '[{}](https://mtg.wtf/card/{}/{})'.format(name, url_set_code.lower(), number)
 
 if __name__ == '__main__':
     arguments = docopt.docopt(__doc__)
