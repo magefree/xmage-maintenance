@@ -22,6 +22,7 @@ Options:
 import sys
 
 import collections
+import contextlib
 import docopt
 import html.parser
 import io
@@ -123,6 +124,10 @@ def markdown_card_link(name, set_code=None, db=None):
             number = card.mciNumber
         except AttributeError as e:
             return '[{}](https://mtg.wtf/card?q=%21{})'.format(name, name.replace(' ', '+'))
+    with contextlib.suppress(ValueError):
+        number = int(number)
+        if 'Plane' in card.types or 'Phenomenon' in card.types:
+            number += 1000
     return '[{}](https://mtg.wtf/card/{}/{})'.format(name, url_set_code.lower(), number)
 
 if __name__ == '__main__':
