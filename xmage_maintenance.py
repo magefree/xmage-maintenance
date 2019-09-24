@@ -35,8 +35,8 @@ import re
 import requests
 import subprocess
 
-MASTER = os.environ.get('XMAGE_MASTER', pathlib.Path('/opt/git/github.com/magefree/mage/master'))
-STAGE = os.environ.get('XMAGE_STAGE', pathlib.Path('/opt/git/github.com/fenhl/mage/stage'))
+MASTER = pathlib.Path(os.environ.get('XMAGE_MASTER', '/opt/git/github.com/magefree/mage/master'))
+STAGE = pathlib.Path(os.environ.get('XMAGE_STAGE', '/opt/git/github.com/fenhl/mage/stage'))
 
 OPTIONS = {
     'stdout': False,
