@@ -5,6 +5,7 @@
 Usage:
   xmage-maintenance [options] full-spoiler <set_code> <spoiler_url>
   xmage-maintenance [options] implemented <card_name> [<set_code>]
+  xmage-maintenance [options] implemented-list
   xmage-maintenance [options] implemented-since <revision>
   xmage-maintenance [options] markdown-link <card_name> [<set_code>]
   xmage-maintenance [options] oracle-update <set_code>
@@ -187,6 +188,14 @@ if __name__ == '__main__':
         if OPTIONS['verbose']:
             print('[{}] {}{}'.format(' ok ' if impl else 'FAIL', '({}) '.format(arguments['<set_code>']) if arguments['<set_code>'] else '', arguments['<card_name>']))
         sys.exit(0 if impl else 1)
+    elif arguments['implemented-list']:
+        if OPTIONS['verbose']:
+            print('[....] determining current implemented cards', end='', flush=True, file=sys.stderr)
+        current_implemented = {card_name for set_code, card_name in iter_implemented()}
+        if OPTIONS['verbose']:
+            print('\r[ ok ]', file=sys.stderr)
+        for card_name in sorted(current_implemented):
+            print(card_name)
     elif arguments['implemented-since']:
         try:
             if OPTIONS['verbose']:
