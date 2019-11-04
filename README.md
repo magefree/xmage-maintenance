@@ -29,6 +29,12 @@ Syntax: `xmage-maintenance [options] implemented <card_name> [<set_code>]`
 
 Exits with code 0 if the card named `<card_name>` is implemented, and with a nonzero exit code if it's not. The argument `<set_code>` can optionally be used to look for the card in a specific set.
 
+## `implemented-list`
+
+Syntax: `xmage-maintenance [options] implemented-list`
+
+Prints a list of all cards implemented in XMage to stdout, one card name per line.
+
 ## `implemented-since`
 
 Syntax: `xmage-maintenance [options] implemented-since <revision>`
