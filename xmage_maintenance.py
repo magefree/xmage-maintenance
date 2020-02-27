@@ -36,6 +36,8 @@ import requests
 import subprocess
 
 MASTER = pathlib.Path(os.environ.get('XMAGE_MASTER', '/opt/git/github.com/magefree/mage/master'))
+SET_REFACTOR_1_REV = 'e0b43883612d551873445ace182c5fc433b283d7'
+SET_REFACTOR_2_REV = '39eaaf727491e998ba6137a18fcdd18fde95b558'
 STAGE = pathlib.Path(os.environ.get('XMAGE_STAGE', '/opt/git/github.com/fenhl/mage/stage'))
 
 OPTIONS = {
@@ -88,13 +90,30 @@ def implemented(name, expansion=None, *, repo=MASTER):
                 return True
     return False
 
-def iter_implemented(*, repo=MASTER):
-    for set_class in (repo / 'Mage.Sets' / 'src' / 'mage' / 'sets').iterdir():
-        if set_class.is_dir():
-            continue
+def iter_implemented(*, repo=MASTER, rev=None):
+    if rev is None:
+        set_class_files = (
+            path
+            for path in (repo / 'Mage.Sets' / 'src' / 'mage' / 'sets').iterdir()
+            if not path.is_dir()
+        )
+    elif older_than(repo, rev, SET_REFACTOR_2_REV):
+        for set_code, card_name in old_iter_implemented(repo=repo, rev=rev, very_old=older_than(repo, rev, SET_REFACTOR_1_REV)):
+            yield set_code, card_name
+        return
+    else:
+        set_class_files = (
+            repo / 'Mage.Sets' / 'src' / 'mage' / 'sets' / entry.split('\t', 1)[1]
+            for entry in subprocess.run(['git', 'ls-tree', f'{rev}:Mage.Sets/src/mage/sets'], cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8', check=True).stdout.splitlines()
+            if entry.split(' ', 2)[1] != 'tree'
+        )
+    for set_class in set_class_files:
         set_code = None
-        with set_class.open() as f:
-            text = f.read()
+        if rev is None:
+            with set_class.open() as f:
+                text = f.read()
+        else:
+            text = subprocess.run(['git', 'show', f'{rev}:{set_class.relative_to(repo)}'], cwd=repo, stdout=subprocess.PIPE, encoding='utf-8', check=True).stdout
         for line in text.split('\n'):
             if set_code is None:
                 match = re.match('        super\\("[^"]+", "([A-Z0-9]+)"', line)
@@ -130,6 +149,100 @@ def markdown_card_link(name, set_code=None, db=None):
         if 'Plane' in card.types or 'Phenomenon' in card.types:
             number += 1000
     return '[{}](https://mtg.wtf/card/{}/{})'.format(name, url_set_code.lower(), number)
+
+def old_iter_implemented(rev, *, repo=MASTER, very_old=False):
+    if very_old:
+        card_class_sets = collections.defaultdict(set)
+        set_class_files = (
+            repo / 'Mage.Sets' / 'src' / 'mage' / 'sets' / entry.split('\t', 1)[1]
+            for entry in subprocess.run(['git', 'ls-tree', f'{rev}:Mage.Sets/src/mage/sets'], cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8', check=True).stdout.splitlines()
+            if entry.split(' ', 2)[1] != 'tree'
+        )
+        for set_class in set_class_files:
+            if set_class.stem == 'Sets':
+                continue
+            set_code = {
+                'AlaraReborn': 'ARB',
+                'Conflux': 'CON',
+                'Magic2010': 'M10',
+                'Magic2011': 'M11',
+                'Planechase': 'HOP',
+                'RiseOfTheEldrazi': 'ROE',
+                'ShardsOfAlara': 'ALA',
+                'Tenth': '10E',
+                'Worldwake': 'WWK',
+                'Zendikar': 'ZEN'
+            }[set_class.stem]
+            text = subprocess.run(['git', 'show', f'{rev}:{set_class.relative_to(repo)}'], cwd=repo, stdout=subprocess.PIPE, encoding='utf-8', check=True).stdout
+            for line in text.split('\n'):
+                match = re.match('import mage\\.sets\\.([0-9a-z]+)\\.\\*;', line)
+                if match:
+                    class_set = match.group(1)
+                match = re.match('\\s*this\\.cards\\.add\\(([0-9A-Za-z]+)\\.class\\);', line)
+                if match:
+                    card_class_sets[class_set, match.group(1)].add(set_code)
+    try:
+        card_class_files = (
+            repo / 'Mage.Sets' / 'src' / 'mage' / 'sets' / set_entry.split('\t', 1)[1] / card_entry.split('\t', 1)[1]
+            for set_entry in subprocess.run(['git', 'ls-tree', f'{rev}:Mage.Sets/src/mage/sets'], cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8', check=True).stdout.splitlines()
+            if set_entry.split(' ', 2)[1] == 'tree' and set_entry.split('\t', 1)[1] != 'tokens'
+            for card_entry in subprocess.run(['git', 'ls-tree', '{}:Mage.Sets/src/mage/sets/{}'.format(rev, set_entry.split('\t', 1)[1])], cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8', check=True).stdout.splitlines()
+            if card_entry.split(' ', 2)[1] != 'tree'
+        )
+    except subprocess.CalledProcessError: # listing sets fails on the very first few commits because Mage.Sets/src/mage/sets doesn't exist yet
+        return
+    classes_cards_map = {}
+    reprints = {}
+    for card in card_class_files:
+        text = subprocess.run(['git', 'show', f'{rev}:{card.relative_to(repo)}'], cwd=repo, stdout=subprocess.PIPE, encoding='utf-8', errors='replace', check=True).stdout
+        set_code = superclass_set = superclass_name = card_name = None
+        imports = {}
+        for line in text.split('\n'):
+            match = re.match('import mage\\.sets\\.([0-9a-z]+)\\.([0-9A-Za-z]+);', line)
+            if match:
+                imports[match.group(2)] = match.group(1)
+            match = re.match('public class [0-9A-Za-z]+ extends (?:mage\\.cards\\.basiclands\\.)?(Plains|Island|Swamp|Mountain|Forest)(?:<[0-9A-Za-z]+>)?\\s*\\{', line)
+            if match:
+                superclass_name = card_name = match.group(1)
+            match = re.match('public class [0-9A-Za-z]+ extends mage\\.sets\\.([0-9a-z]+)\\.([0-9A-Za-z]+)\\s*\\{', line)
+            if match:
+                superclass_set, superclass_name = match.groups()
+            match = re.match('public class [0-9A-Za-z]+ extends ([0-9A-Za-z]+)\\s*\\{', line)
+            if match and match.group(1) in imports:
+                superclass_name = match.group(1)
+                superclass_set = imports[match.group(1)]
+            match = re.match('\\s*super\\([A-Za-z]+,\\s*(?:[0-9]+,)?\\s*"(.+?)",', line)
+            if match:
+                card_name = match.group(1)
+            match = re.match('\\s*this\\.expansionSetCode = "([0-9A-Z]+)";', line)
+            if match:
+                set_code = match.group(1)
+                break
+        if set_code is not None and card_name is not None:
+            classes_cards_map[card.parent.name, card.stem] = set_code, card_name
+            yield set_code, card_name
+        elif superclass_set is not None and superclass_name is not None:
+            reprints[card.parent.name, card.stem] = superclass_set, superclass_name, set_code
+        elif very_old and card_name is not None:
+            for set_code in card_class_sets[card.parent.name, card.stem]:
+                yield set_code, card_name
+        else:
+            if OPTIONS['verbose']:
+                print(f'Neither set/name nor superclass found for {rev}:{card}')
+            continue
+    if not very_old:
+        for superclass_set, superclass_name, set_code in reprints.values():
+            while (superclass_set, superclass_name) in reprints:
+                superclass_set, superclass_name, super_set_code = reprints[superclass_set, superclass_name]
+                if set_code is None:
+                    set_code = super_set_code
+            if set_code is None:
+                yield classes_cards_map[superclass_set, superclass_name]
+            else:
+                yield set_code, classes_cards_map[superclass_set, superclass_name][1]
+
+def older_than(repo, rev1, rev2):
+    return subprocess.run(['git', 'merge-base', rev1, rev2], cwd=repo, stdout=subprocess.PIPE, encoding='utf-8', check=True).stdout.strip() != rev2
 
 if __name__ == '__main__':
     arguments = docopt.docopt(__doc__)
