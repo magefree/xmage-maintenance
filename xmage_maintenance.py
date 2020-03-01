@@ -85,7 +85,7 @@ def implemented(name, expansion=None, *, repo=MASTER):
                 match = re.match('        super\\("[^"]+", "([A-Z0-9]+)"', line)
                 if match and match.group(1) != expansion:
                     break
-            match = re.search('cards.add\\(new SetCardInfo\\("{}",'.format(name), line)
+            match = re.search('(?<!//)(?<!// )cards\\.add\\(new SetCardInfo\\("{}",'.format(name), line)
             if match:
                 return True
     return False
@@ -120,7 +120,7 @@ def iter_implemented(*, repo=MASTER, rev=None):
                 if match:
                     set_code = match.group(1)
             else:
-                match = re.search('cards.add\\(new SetCardInfo\\("([^"]+)",', line)
+                match = re.search('(?<!//)(?<!// )cards\\.add\\(new SetCardInfo\\("([^"]+)",', line)
                 if match:
                     yield set_code, match.group(1)
 
